@@ -197,6 +197,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Generated OCR artifacts
+speed_detection/services/license_plates/easyocr_models/
+speed_detection/services/license_plates/easyocr_user_network/
+speed_detection/services/license_plates/output/
+
 # PyPI configuration file
 .pypirc
 
