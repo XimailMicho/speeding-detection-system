@@ -60,6 +60,64 @@ Important backend folders:
 
 The backend uses PostgreSQL through Docker Compose.
 
+### RoadEye Backend API
+
+The backend now includes the complete RoadEye MVP described in the team reports:
+
+- Session authentication with user roles: `driver`, `official`, `admin`.
+- Vehicles with owners and registration metadata.
+- Toll stations, connected toll routes, speed limits, Google Maps distance/duration cache fields, and daily expected route times.
+- Toll captures with license plate OCR metadata and image snapshot paths.
+- Automatic traversal detection between entry and exit tolls.
+- Speeding detection based on distance, observed travel time, expected duration, speed limit, and tolerance.
+- Automatic fine generation, 50% fast-payment discount within 7 days, due dates, and statuses.
+- Email/SMS notification records for new fines. Email uses Django console email by default; SMS is stored as a sent demo notification.
+- Appeal submission and official review workflow.
+- Demo payment gateway records and paid fine status updates.
+- Admin statistics for issued, paid, unpaid, appealed, and cancelled fines.
+
+Important API routes:
+
+```text
+POST /api/auth/register/
+POST /api/auth/login/
+POST /api/auth/logout/
+GET  /api/auth/me/
+
+GET  /api/tolls/
+POST /api/tolls/                 official/admin
+GET  /api/connections/
+POST /api/connections/           official/admin
+GET  /api/vehicles/
+POST /api/vehicles/
+POST /api/captures/              official/admin, triggers traversal/fine detection
+GET  /api/traversals/            official/admin
+GET  /api/fines/
+GET  /api/fines/<id>/
+POST /api/fines/<id>/pay/
+GET  /api/appeals/
+POST /api/appeals/
+POST /api/appeals/<id>/review/   official/admin
+GET  /api/statistics/
+```
+
+Useful backend commands:
+
+```bash
+cd speed_detection
+docker compose run --rm web python manage.py migrate
+docker compose run --rm web python manage.py seed_roadeye_demo
+docker compose run --rm web python manage.py sync_connection_times
+docker compose run --rm web python manage.py test apps.tolls
+```
+
+Demo users created by `seed_roadeye_demo`:
+
+```text
+Official: official@roadeye.local / official123
+Driver:   driver@roadeye.local / driver123
+```
+
 ## Frontend
 
 The Figma UI was moved into:
@@ -228,4 +286,3 @@ After building, the Django app at `http://127.0.0.1:8000/` serves the latest bui
 - `npm install` may need the temporary cache path shown above if the default npm cache has permission issues.
 - `docker-compose.yml` currently works, but Docker warns that the top-level `version` field is obsolete.
 - `npm audit` currently reports one high severity vulnerability from frontend dependencies. Review before production use.
-

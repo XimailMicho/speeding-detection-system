@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'apps.tolls',
     'apps.vehicles',
     'apps.users',
-    'common',
 ]
 
 MIDDLEWARE = [
@@ -129,6 +128,22 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [STATICFILES_DIR] if STATICFILES_DIR.exists() else []
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+LOGIN_URL = '/api/auth/login/'
+
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@roadeye.local')
+ROADEYE_DEFAULT_SPEED_LIMIT_KPH = int(os.environ.get('ROADEYE_DEFAULT_SPEED_LIMIT_KPH', '90'))
+ROADEYE_SPEED_TOLERANCE_KPH = int(os.environ.get('ROADEYE_SPEED_TOLERANCE_KPH', '5'))
+ROADEYE_FAST_PAYMENT_DISCOUNT_PERCENT = int(
+    os.environ.get('ROADEYE_FAST_PAYMENT_DISCOUNT_PERCENT', '50')
+)
+ROADEYE_FAST_PAYMENT_DAYS = int(os.environ.get('ROADEYE_FAST_PAYMENT_DAYS', '7'))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
