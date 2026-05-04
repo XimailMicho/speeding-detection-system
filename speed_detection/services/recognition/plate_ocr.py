@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional, Tuple
 import easyocr
 
+
 @dataclass
 class PlateCandidate:
     text: str
@@ -11,9 +12,6 @@ class PlateCandidate:
 
 class PlateOcr:
     def __init__(self, languages: Optional[Iterable[str]] = None, gpu: bool = False) -> None:
-        # Lazy import so the module can be imported without OCR deps installed.
-
-
         self.reader = easyocr.Reader(list(languages or ["en"]), gpu=gpu)
 
     def read_plate(self, image_path: str) -> Tuple[str, Optional[float], List[PlateCandidate]]:
@@ -29,12 +27,14 @@ class PlateOcr:
             best = max(candidates, key=lambda item: item.confidence)
             return best.text, best.confidence, candidates
 
-        # Fallback: pick the best raw OCR if nothing looked like a plate.
         if results:
             _bbox, text, confidence = max(results, key=lambda item: item[2])
             return _normalize_plate(text), float(confidence), []
 
         return "", None, []
+
+
+_PLATE_PATTERN = re.compile(r"^[A-Z]{2}\d{3,4}[A-Z]{2}$")
 
 
 def _normalize_plate(text: str) -> str:
@@ -43,9 +43,4 @@ def _normalize_plate(text: str) -> str:
 
 
 def _is_plate_like(text: str) -> bool:
-    if not text:
-        return False
-    if len(text) < 4 or len(text) > 12:
-        return False
-    return text.isalnum()
-
+    return bool(_PLATE_PATTERN.fullmatch(text or ""))
