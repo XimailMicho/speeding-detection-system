@@ -19,7 +19,6 @@ from apps.tolls.models import (
     Payment,
     TollCapture,
     TollConnection,
-    TollConnectionDailyTime,
     TollTraversal,
 )
 from apps.vehicles.models import Vehicle
@@ -30,16 +29,8 @@ def normalize_plate(plate_text: str) -> str:
 
 
 def expected_duration_for(connection: TollConnection, at_time) -> int:
-    daily_time = TollConnectionDailyTime.objects.filter(
-        connection=connection,
-        date=at_time.date(),
-    ).first()
-    if daily_time:
-        return daily_time.expected_duration_in_traffic_seconds or daily_time.expected_duration_seconds
-    if connection.maps_duration_in_traffic_seconds:
-        return connection.maps_duration_in_traffic_seconds
-    if connection.maps_duration_seconds:
-        return connection.maps_duration_seconds
+    if connection.allowed_time:
+        return int(max(connection.allowed_time, 1) * 60)
     return connection.minimum_allowed_seconds()
 
 
@@ -79,7 +70,6 @@ def create_fine_for_traversal(traversal: TollTraversal) -> Fine | None:
         base_amount=calculate_fine_amount(traversal.speed_over_limit_kph),
         discount_percent=settings.ROADEYE_FAST_PAYMENT_DISCOUNT_PERCENT,
         discount_deadline=now + timedelta(days=settings.ROADEYE_FAST_PAYMENT_DAYS),
-        due_at=now + timedelta(days=30),
         notes=(
             f"Average speed {traversal.average_speed_kph} km/h on "
             f"{traversal.connection.from_toll} -> {traversal.connection.to_toll}."
@@ -116,10 +106,6 @@ def create_capture(
         vehicle=vehicle,
         plate_text=plate_text,
         captured_at=captured_at,
-        image_path=image_path,
-        ocr_confidence=ocr_confidence,
-        lane_identifier=lane_identifier,
-        raw_ocr_payload=raw_ocr_payload or {},
     )
     if vehicle:
         try_create_traversal_for_capture(capture)
@@ -157,10 +143,11 @@ def try_create_traversal_for_capture(exit_capture: TollCapture) -> TollTraversal
         return None
 
     speed_limit = connection.effective_speed_limit_kph
+    tolerance_kph = settings.ROADEYE_SPEED_TOLERANCE_KPH
     average_speed = calculate_average_speed(connection.distance_km, observed_seconds)
     expected_seconds = expected_duration_for(connection, exit_capture.captured_at)
-    speed_over = max(Decimal(str(average_speed)) - Decimal(speed_limit + connection.tolerance_kph), Decimal('0'))
-    is_speeding = average_speed > (speed_limit + connection.tolerance_kph) or observed_seconds < expected_seconds
+    speed_over = max(Decimal(str(average_speed)) - Decimal(speed_limit + tolerance_kph), Decimal('0'))
+    is_speeding = average_speed > (speed_limit + tolerance_kph) or observed_seconds < expected_seconds
 
     traversal = TollTraversal.objects.create(
         entry_capture=entry_capture,

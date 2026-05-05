@@ -9,36 +9,29 @@ from apps.tolls.models import (
     Toll,
     TollCapture,
     TollConnection,
-    TollConnectionDailyTime,
     TollTraversal,
 )
 
 
 @admin.register(Toll)
 class TollAdmin(admin.ModelAdmin):
-    list_display = ('name', 'code', 'city', 'road_name', 'is_active')
-    list_filter = ('is_active', 'city')
-    search_fields = ('name', 'code', 'city', 'road_name')
+    list_display = ('name', 'code', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'code')
 
 
 @admin.register(TollConnection)
 class TollConnectionAdmin(admin.ModelAdmin):
-    list_display = ('from_toll', 'to_toll', 'distance_km', 'max_speed_kph', 'tolerance_kph')
+    list_display = ('from_toll', 'to_toll', 'distance_km', 'max_speed_kph', 'allowed_time_minutes')
     list_filter = ('max_speed_kph',)
     search_fields = ('from_toll__name', 'to_toll__name')
 
 
-@admin.register(TollConnectionDailyTime)
-class TollConnectionDailyTimeAdmin(admin.ModelAdmin):
-    list_display = ('connection', 'date', 'expected_duration_seconds', 'source', 'calculated_at')
-    list_filter = ('date', 'source')
-
-
 @admin.register(TollCapture)
 class TollCaptureAdmin(admin.ModelAdmin):
-    list_display = ('plate_text', 'toll', 'vehicle', 'captured_at', 'ocr_confidence', 'lane_identifier')
+    list_display = ('plate_text', 'toll', 'vehicle', 'captured_at')
     list_filter = ('toll', 'captured_at')
-    search_fields = ('plate_text', 'vehicle__license_plate', 'image_path')
+    search_fields = ('plate_text', 'vehicle__license_plate')
     date_hierarchy = 'captured_at'
 
 

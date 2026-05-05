@@ -9,8 +9,6 @@ from common.models import Coordinates
 class Toll(models.Model):
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20, unique=True, null=True, blank=True)
-    city = models.CharField(max_length=80, blank=True)
-    road_name = models.CharField(max_length=100, blank=True)
     is_active = models.BooleanField(default=True)
     coordinates = models.OneToOneField(
         Coordinates,
@@ -39,11 +37,7 @@ class TollConnection(models.Model):
         blank=True,
         validators=[MinValueValidator(30), MaxValueValidator(160)],
     )
-    tolerance_kph = models.PositiveSmallIntegerField(default=5)
-    maps_distance_meters = models.PositiveIntegerField(null=True, blank=True)
-    maps_duration_seconds = models.PositiveIntegerField(null=True, blank=True)
-    maps_duration_in_traffic_seconds = models.PositiveIntegerField(null=True, blank=True)
-    maps_last_synced_at = models.DateTimeField(null=True, blank=True)
+    allowed_time_minutes = models.DecimalField(decimal_places=3,max_digits=5,default=0)
 
     class Meta:
         constraints = [
@@ -65,33 +59,6 @@ class TollConnection(models.Model):
         return int((self.distance_km / speed_limit) * 3600)
 
 
-class TollConnectionDailyTime(models.Model):
-    connection = models.ForeignKey(
-        TollConnection,
-        on_delete=models.CASCADE,
-        related_name='daily_times'
-    )
-    date = models.DateField()
-    expected_duration_seconds = models.PositiveIntegerField()
-    expected_duration_in_traffic_seconds = models.PositiveIntegerField(null=True, blank=True)
-    distance_meters = models.PositiveIntegerField(null=True, blank=True)
-    source = models.CharField(max_length=40, default='maps_distance_matrix')
-    calculated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['connection', 'date'],
-                name='unique_connection_daily_time'
-            )
-        ]
-        indexes = [
-            models.Index(fields=['connection', 'date']),
-        ]
-
-    def __str__(self):
-        return f"{self.connection} @ {self.date}"
-
 
 class TollCapture(models.Model):
     toll = models.ForeignKey(
@@ -108,15 +75,10 @@ class TollCapture(models.Model):
     )
     plate_text = models.CharField(max_length=20, blank=True)
     captured_at = models.DateTimeField(db_index=True)
-    image_path = models.CharField(max_length=255, blank=True)
-    ocr_confidence = models.FloatField(null=True, blank=True)
-    lane_identifier = models.CharField(max_length=20, blank=True)
-    raw_ocr_payload = models.JSONField(default=dict, blank=True)
 
     class Meta:
         indexes = [
             models.Index(fields=['toll', 'captured_at']),
-            models.Index(fields=['plate_text', 'captured_at']),
         ]
 
     def __str__(self):
@@ -186,7 +148,6 @@ class Fine(models.Model):
     discount_percent = models.PositiveSmallIntegerField(default=50)
     discount_deadline = models.DateTimeField()
     issued_at = models.DateTimeField(default=timezone.now)
-    due_at = models.DateTimeField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.UNPAID)
     notes = models.TextField(blank=True)
 
