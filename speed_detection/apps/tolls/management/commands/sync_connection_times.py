@@ -8,7 +8,7 @@ from apps.tolls.models import TollConnection
 
 
 class Command(BaseCommand):
-    help = "Update expected route time stored on TollConnection (allowed_time minutes)."
+    help = "Update expected route time stored on TollConnection (allowed_time_minutes)."
 
     def add_arguments(self, parser):
         parser.add_argument('--connection-id', type=int)
@@ -23,10 +23,10 @@ class Command(BaseCommand):
         for connection in qs:
             duration_seconds = options['duration_seconds'] or connection.minimum_allowed_seconds()
             allowed_minutes = max(1, int(ceil(duration_seconds / 60)))
-            connection.allowed_time = allowed_minutes
+            connection.allowed_time_minutes = allowed_minutes
 
             if options['distance_meters']:
                 connection.distance_km = options['distance_meters'] / 1000
 
-            connection.save(update_fields=['allowed_time', 'distance_km'])
+            connection.save(update_fields=['allowed_time_minutes', 'distance_km'])
             self.stdout.write(f"Synced {connection}: {allowed_minutes} min")
