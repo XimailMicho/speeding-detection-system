@@ -29,8 +29,8 @@ def normalize_plate(plate_text: str) -> str:
 
 
 def expected_duration_for(connection: TollConnection, at_time) -> int:
-    if connection.allowed_time:
-        return int(max(connection.allowed_time, 1) * 60)
+    if connection.allowed_time_minutes:
+        return int(max(connection.allowed_time_minutes, 0) * 60)
     return connection.minimum_allowed_seconds()
 
 
