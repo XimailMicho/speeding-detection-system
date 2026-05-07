@@ -41,16 +41,16 @@ class Command(BaseCommand):
         )
 
         toll_specs = [
-            ('Romanovce', 'ROM', 'A1', 42.0872, 21.7062),
-            ('Petrovec', 'PET', 'A1', 41.9423, 21.6129),
-            ('Gradsko', 'GRA', 'A1', 41.5834, 21.9364),
+            ('Romanovce', 'ROM', 42.0872, 21.7062),
+            ('Petrovec', 'PET', 41.9423, 21.6129),
+            ('Gradsko', 'GRA', 41.5834, 21.9364),
         ]
         tolls = {}
-        for name, code, road, lat, lng in toll_specs:
+        for name, code, lat, lng in toll_specs:
             coords, _ = Coordinates.objects.get_or_create(latitude=lat, longitude=lng)
             toll, _ = Toll.objects.update_or_create(
                 code=code,
-                defaults={'name': name, 'road_name': road, 'city': name, 'coordinates': coords},
+                defaults={'name': name, 'coordinates': coords},
             )
             tolls[code] = toll
 
@@ -60,11 +60,7 @@ class Command(BaseCommand):
             defaults={
                 'distance_km': 31.0,
                 'max_speed_kph': 100,
-                'tolerance_kph': 5,
-                'maps_distance_meters': 31000,
-                'maps_duration_seconds': 1116,
-                'maps_duration_in_traffic_seconds': 1200,
-                'maps_last_synced_at': timezone.now(),
+                'allowed_time_minutes': 18.6,
             },
         )
         TollConnection.objects.update_or_create(
@@ -73,11 +69,7 @@ class Command(BaseCommand):
             defaults={
                 'distance_km': 58.0,
                 'max_speed_kph': 100,
-                'tolerance_kph': 5,
-                'maps_distance_meters': 58000,
-                'maps_duration_seconds': 2088,
-                'maps_duration_in_traffic_seconds': 2200,
-                'maps_last_synced_at': timezone.now(),
+                'allowed_time_minutes': 34.8,
             },
         )
 
