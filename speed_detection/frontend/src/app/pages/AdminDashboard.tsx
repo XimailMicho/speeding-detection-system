@@ -1,14 +1,51 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Shield, AlertTriangle, DollarSign, TrendingUp, CheckCircle } from 'lucide-react';
-import { mockAdminStatistics, mockAdmin } from '../data/mockData';
+import { getStatistics } from '../api/tolls';
+import { useAuth } from '../auth/AuthContext';
+import { toast } from 'sonner';
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
+  const [stats, setStats] = useState<any>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getStatistics();
+        setStats(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load statistics.';
+        toast.error(message);
+      }
+    };
+    load();
+  }, []);
+
+  const violationsByStatus = useMemo(() => {
+    if (!stats?.violations_by_status) {
+      return [];
+    }
+    return stats.violations_by_status.map((item: { status: string; count: number }) => ({
+      status: item.status,
+      count: item.count,
+    }));
+  }, [stats]);
+
+  const revenueSeries = useMemo(() => {
+    if (!stats?.total_revenue) {
+      return [{ label: 'Total', amount: 0 }];
+    }
+    return [{ label: 'Total', amount: Number.parseFloat(stats.total_revenue) || 0 }];
+  }, [stats]);
+
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockAdmin.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
@@ -31,7 +68,7 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-[#0F172A]">{mockAdminStatistics.totalViolations.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-[#0F172A]">{stats?.total_fines ?? 0}</div>
                 <p className="text-xs text-slate-600 mt-1">All time</p>
               </CardContent>
             </Card>
@@ -40,12 +77,12 @@ export default function AdminDashboard() {
               <CardHeader className="pb-3">
                 <CardDescription className="flex items-center gap-2 text-xs">
                   <TrendingUp className="w-4 h-4 text-[#6366F1]" />
-                  Today's Violations
+                  Today's Captures
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-[#6366F1]">{mockAdminStatistics.dailyViolations}</div>
-                <p className="text-xs text-[#16A34A] mt-1">+12% from yesterday</p>
+                <div className="text-3xl font-bold text-[#6366F1]">{stats?.captures_today ?? 0}</div>
+                <p className="text-xs text-[#16A34A] mt-1">Captures processed</p>
               </CardContent>
             </Card>
 
@@ -57,7 +94,7 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-[#16A34A]">${mockAdminStatistics.totalRevenue.toLocaleString()}</div>
+                <div className="text-3xl font-bold text-[#16A34A]">${Number.parseFloat(stats?.total_revenue ?? '0').toFixed(2)}</div>
                 <p className="text-xs text-slate-600 mt-1">Collected fines</p>
               </CardContent>
             </Card>
@@ -66,12 +103,12 @@ export default function AdminDashboard() {
               <CardHeader className="pb-3">
                 <CardDescription className="flex items-center gap-2 text-xs">
                   <CheckCircle className="w-4 h-4 text-[#F59E0B]" />
-                  Pending Review
+                  Pending Appeals
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-[#F59E0B]">{mockAdminStatistics.pendingReview}</div>
-                <p className="text-xs text-slate-600 mt-1">Awaiting approval</p>
+                <div className="text-3xl font-bold text-[#F59E0B]">{stats?.pending_appeals ?? 0}</div>
+                <p className="text-xs text-slate-600 mt-1">Awaiting review</p>
               </CardContent>
             </Card>
 
@@ -79,12 +116,12 @@ export default function AdminDashboard() {
               <CardHeader className="pb-3">
                 <CardDescription className="flex items-center gap-2 text-xs">
                   <DollarSign className="w-4 h-4 text-[#F59E0B]" />
-                  Today's Revenue
+                  Paid Fines
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-[#F59E0B]">${mockAdminStatistics.todayRevenue.toLocaleString()}</div>
-                <p className="text-xs text-slate-600 mt-1">Collected today</p>
+                <div className="text-3xl font-bold text-[#F59E0B]">{stats?.paid_fines ?? 0}</div>
+                <p className="text-xs text-slate-600 mt-1">Marked as paid</p>
               </CardContent>
             </Card>
           </div>
@@ -95,15 +132,15 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-[#0F172A]">
                   <TrendingUp className="w-5 h-5 text-[#312E81]" />
-                  Weekly Violations
+                  Violations by Status
                 </CardTitle>
-                <CardDescription>Daily violation count for this week</CardDescription>
+                <CardDescription>Current counts by status</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={mockAdminStatistics.violationsByDay}>
+                  <BarChart data={violationsByStatus}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                    <XAxis dataKey="day" stroke="#64748B" />
+                    <XAxis dataKey="status" stroke="#64748B" />
                     <YAxis stroke="#64748B" />
                     <Tooltip 
                       contentStyle={{ 
@@ -128,15 +165,15 @@ export default function AdminDashboard() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-[#0F172A]">
                   <DollarSign className="w-5 h-5 text-[#16A34A]" />
-                  Monthly Revenue
+                  Revenue Snapshot
                 </CardTitle>
-                <CardDescription>Revenue collected per month</CardDescription>
+                <CardDescription>Total revenue collected</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockAdminStatistics.revenueByMonth}>
+                  <LineChart data={revenueSeries}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
-                    <XAxis dataKey="month" stroke="#64748B" />
+                    <XAxis dataKey="label" stroke="#64748B" />
                     <YAxis stroke="#64748B" />
                     <Tooltip 
                       contentStyle={{ 

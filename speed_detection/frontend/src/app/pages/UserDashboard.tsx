@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -6,17 +6,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Receipt, AlertTriangle, CheckCircle, Clock, DollarSign } from 'lucide-react';
-import { mockViolations, mockUser } from '../data/mockData';
+import { Receipt, AlertTriangle, Clock, DollarSign } from 'lucide-react';
+import { getFines } from '../api/tolls';
+import { mapFineToViolation, summarizeViolations, Violation } from '../api/mappers';
+import { useAuth } from '../auth/AuthContext';
+import { toast } from 'sonner';
 
 export default function UserDashboard() {
-  const unpaidViolations = mockViolations.filter(v => v.status === 'unpaid');
-  const paidViolations = mockViolations.filter(v => v.status === 'paid');
-  const allUserViolations = mockViolations;
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
+  const [violations, setViolations] = useState<Violation[]>([]);
 
-  const totalFines = mockViolations.length;
-  const unpaidAmount = unpaidViolations.reduce((sum, v) => sum + v.amount, 0);
-  const latestViolation = mockViolations[0];
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const fines = await getFines();
+        setViolations(fines.map(mapFineToViolation));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load fines.';
+        toast.error(message);
+      }
+    };
+    load();
+  }, []);
+
+  const summary = useMemo(() => summarizeViolations(violations), [violations]);
+  const unpaidViolations = useMemo(() => violations.filter((v) => v.status === 'unpaid'), [violations]);
+  const paidViolations = useMemo(() => violations.filter((v) => v.status === 'paid'), [violations]);
+  const latestViolation = violations[0];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -31,7 +48,7 @@ export default function UserDashboard() {
     }
   };
 
-  const ViolationTable = ({ violations }: { violations: typeof mockViolations }) => (
+  const ViolationTable = ({ violations }: { violations: Violation[] }) => (
     <Table>
       <TableHeader>
         <TableRow className="bg-slate-50">
@@ -47,7 +64,7 @@ export default function UserDashboard() {
       <TableBody>
         {violations.map((violation) => (
           <TableRow key={violation.id} className="hover:bg-slate-50">
-            <TableCell className="font-semibold text-[#6366F1]">{violation.id}</TableCell>
+            <TableCell className="font-semibold text-[#6366F1]">{violation.referenceNumber}</TableCell>
             <TableCell>{violation.date}</TableCell>
             <TableCell>
               <div className="text-sm">
@@ -86,13 +103,13 @@ export default function UserDashboard() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockUser.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Dashboard</h1>
-            <p className="text-slate-600">Welcome back, {mockUser.name}</p>
+            <p className="text-slate-600">Welcome back, {user?.first_name || user?.email || 'Driver'}</p>
           </div>
 
           {/* Summary Cards */}
@@ -106,7 +123,7 @@ export default function UserDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-end justify-between">
-                  <div className="text-4xl font-bold text-[#0F172A]">{totalFines}</div>
+                  <div className="text-4xl font-bold text-[#0F172A]">{summary.total}</div>
                   <AlertTriangle className="w-8 h-8 text-[#DC2626]" />
                 </div>
               </CardContent>
@@ -121,7 +138,7 @@ export default function UserDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-end justify-between">
-                  <div className="text-4xl font-bold text-[#F59E0B]">${unpaidAmount}</div>
+                  <div className="text-4xl font-bold text-[#F59E0B]">${summary.unpaidAmount.toFixed(2)}</div>
                   <Clock className="w-8 h-8 text-[#F59E0B]" />
                 </div>
               </CardContent>
@@ -137,10 +154,10 @@ export default function UserDashboard() {
               <CardContent>
                 <div className="flex items-end justify-between">
                   <div>
-                    <div className="text-2xl font-bold text-[#0F172A]">{latestViolation.id}</div>
-                    <div className="text-sm text-slate-600">{latestViolation.date}</div>
+                    <div className="text-2xl font-bold text-[#0F172A]">{latestViolation?.referenceNumber ?? '—'}</div>
+                    <div className="text-sm text-slate-600">{latestViolation?.date ?? ''}</div>
                   </div>
-                  {getStatusBadge(latestViolation.status)}
+                  {latestViolation ? getStatusBadge(latestViolation.status) : null}
                 </div>
               </CardContent>
             </Card>
@@ -171,7 +188,7 @@ export default function UserDashboard() {
                     value="all"
                     className="data-[state=active]:bg-[#6366F1] data-[state=active]:text-white"
                   >
-                    All History ({allUserViolations.length})
+                    All History ({violations.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -184,7 +201,7 @@ export default function UserDashboard() {
                 </TabsContent>
 
                 <TabsContent value="all">
-                  <ViolationTable violations={allUserViolations} />
+                  <ViolationTable violations={violations} />
                 </TabsContent>
               </Tabs>
             </CardContent>

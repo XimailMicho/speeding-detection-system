@@ -6,19 +6,30 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { useAuth } from '../auth/AuthContext';
+import { toast } from 'sonner';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('driver');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role === 'official') {
-      navigate('/admin');
-    } else {
-      navigate('/dashboard');
+    setIsSubmitting(true);
+    try {
+      const user = await login(email, password);
+      const userRole = user.role || (user.is_staff ? 'official' : 'driver');
+      const target = userRole === 'official' || role === 'official' ? '/admin' : '/dashboard';
+      navigate(target);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Login failed.';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -82,8 +93,9 @@ export default function Login() {
               <Button 
                 type="submit" 
                 className="w-full bg-[#312E81] hover:bg-[#4338CA] text-white"
+                disabled={isSubmitting}
               >
-                Login
+                {isSubmitting ? 'Signing in...' : 'Login'}
               </Button>
             </form>
 

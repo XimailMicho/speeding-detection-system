@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,14 +7,20 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { ArrowLeft, CreditCard, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { mockViolations, mockUser } from '../data/mockData';
+import { getFine, payFine } from '../api/tolls';
+import { mapFineToViolation, Violation } from '../api/mappers';
+import { useAuth } from '../auth/AuthContext';
 import { toast } from 'sonner';
 
 export default function Payment() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const violation = mockViolations.find(v => v.id === id);
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
+  const [violation, setViolation] = useState<Violation | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState({
     cardNumber: '',
     cardName: '',
@@ -22,10 +28,42 @@ export default function Payment() {
     cvv: '',
   });
 
+  useEffect(() => {
+    const load = async () => {
+      if (!id) {
+        setIsLoading(false);
+        return;
+      }
+      try {
+        const fine = await getFine(id);
+        setViolation(mapFineToViolation(fine));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load violation.';
+        toast.error(message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen bg-[#F8FAFC]">
+        <Sidebar role={uiRole} />
+        <div className="flex-1 ml-64 p-8 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Loading payment...</h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!violation) {
     return (
       <div className="flex min-h-screen bg-[#F8FAFC]">
-        <Sidebar role={mockUser.role} />
+        <Sidebar role={uiRole} />
         <div className="flex-1 ml-64 p-8 flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Violation Not Found</h2>
@@ -44,17 +82,29 @@ export default function Payment() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPaymentSuccess(true);
-    toast.success('Payment processed successfully!');
+    if (!id) {
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await payFine(id);
+      setPaymentSuccess(true);
+      toast.success('Payment processed successfully!');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Payment failed.';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (paymentSuccess) {
     return (
       <div className="flex min-h-screen bg-[#F8FAFC]">
-        <Sidebar role={mockUser.role} />
-        
+        <Sidebar role={uiRole} />
+
         <div className="flex-1 ml-64 p-8">
           <div className="max-w-3xl mx-auto">
             <Card className="shadow-xl border-0 text-center py-12">
@@ -67,7 +117,7 @@ export default function Payment() {
                   Your payment of <span className="font-bold text-[#F59E0B]">${violation.amount}</span> has been processed.
                 </p>
                 <p className="text-slate-600 mb-8">
-                  Violation ID: <span className="font-semibold">{violation.id}</span>
+                  Violation ID: <span className="font-semibold">{violation.referenceNumber}</span>
                 </p>
                 
                 <div className="bg-slate-50 rounded-lg p-6 mb-8 text-left max-w-md mx-auto">
@@ -75,7 +125,7 @@ export default function Payment() {
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-slate-600">Violation ID:</span>
-                      <span className="font-semibold text-[#0F172A]">{violation.id}</span>
+                      <span className="font-semibold text-[#0F172A]">{violation.referenceNumber}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-600">Date:</span>
@@ -117,8 +167,8 @@ export default function Payment() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockUser.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-5xl mx-auto">
           <div className="mb-6">
@@ -132,7 +182,7 @@ export default function Payment() {
 
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Payment</h1>
-            <p className="text-slate-600">Complete your payment for violation {violation.id}</p>
+            <p className="text-slate-600">Complete your payment for violation {violation.referenceNumber}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -207,8 +257,9 @@ export default function Payment() {
                       type="submit" 
                       className="w-full bg-[#312E81] hover:bg-[#4338CA] text-white"
                       size="lg"
+                      disabled={isSubmitting}
                     >
-                      Pay ${violation.amount}
+                      {isSubmitting ? 'Processing...' : `Pay $${violation.amount}`}
                     </Button>
                   </form>
                 </CardContent>
@@ -231,7 +282,7 @@ export default function Payment() {
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-slate-600">ID:</span>
-                          <span className="font-semibold text-[#0F172A]">{violation.id}</span>
+                          <span className="font-semibold text-[#0F172A]">{violation.referenceNumber}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-600">Date:</span>

@@ -1,5 +1,5 @@
-import { Link, useLocation } from 'react-router';
-import { 
+import { Link, useLocation, useNavigate } from 'react-router';
+import {
   LayoutDashboard, 
   Receipt, 
   User, 
@@ -9,13 +9,16 @@ import {
   Search,
   Car
 } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
 
 interface SidebarProps {
-  role?: 'driver' | 'official';
+  role?: 'driver' | 'official' | 'admin';
 }
 
 export function Sidebar({ role = 'driver' }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -33,7 +36,12 @@ export function Sidebar({ role = 'driver' }: SidebarProps) {
     { path: '/admin/tracking', icon: Search, label: 'Vehicle Tracking' },
   ];
 
-  const links = role === 'official' ? adminLinks : userLinks;
+  const links = role === 'official' || role === 'admin' ? adminLinks : userLinks;
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
   return (
     <div className="w-64 bg-[#312E81] text-white h-screen fixed left-0 top-0 flex flex-col">
@@ -72,13 +80,14 @@ export function Sidebar({ role = 'driver' }: SidebarProps) {
       </nav>
 
       <div className="p-4 border-t border-[#4338CA]">
-        <Link
-          to="/"
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-indigo-200 hover:bg-[#4338CA] hover:text-white transition-colors"
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 px-4 py-3 rounded-lg text-indigo-200 hover:bg-[#4338CA] hover:text-white transition-colors"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Logout</span>
-        </Link>
+        </button>
       </div>
     </div>
   );

@@ -1,19 +1,58 @@
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { ArrowLeft, Camera, Clock, MapPin, AlertTriangle, TrendingUp } from 'lucide-react';
-import { mockViolations, mockUser } from '../data/mockData';
+import { getFine } from '../api/tolls';
+import { mapFineToViolation, Violation } from '../api/mappers';
+import { useAuth } from '../auth/AuthContext';
+import { toast } from 'sonner';
 
 export default function FineEvidence() {
   const { id } = useParams();
-  const violation = mockViolations.find(v => v.id === id);
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
+  const [violation, setViolation] = useState<Violation | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const fine = await getFine(id);
+        setViolation(mapFineToViolation(fine));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load violation.';
+        toast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-[#F8FAFC]">
+        <Sidebar role={uiRole} />
+        <div className="flex-1 ml-64 p-8 flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Loading violation...</h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!violation) {
     return (
       <div className="flex min-h-screen bg-[#F8FAFC]">
-        <Sidebar role={mockUser.role} />
+        <Sidebar role={uiRole} />
         <div className="flex-1 ml-64 p-8 flex items-center justify-center">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Violation Not Found</h2>
@@ -43,8 +82,8 @@ export default function FineEvidence() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockUser.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-6">
@@ -59,7 +98,7 @@ export default function FineEvidence() {
           <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-[#0F172A] mb-2">Violation Evidence</h1>
-              <p className="text-slate-600">Violation ID: {violation.id}</p>
+              <p className="text-slate-600">Violation ID: {violation.referenceNumber}</p>
             </div>
             {getStatusBadge(violation.status)}
           </div>
@@ -107,12 +146,16 @@ export default function FineEvidence() {
                 <CardDescription>{violation.entryToll}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden mb-4">
-                  <img 
-                    src={violation.entryImage} 
-                    alt="Entry point license plate" 
-                    className="w-full h-full object-cover"
-                  />
+                <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+                  {violation.entryImage ? (
+                    <img
+                      src={violation.entryImage}
+                      alt="Entry point license plate"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-slate-500">No entry image available</span>
+                  )}
                 </div>
                 <div className="space-y-2 bg-slate-50 p-4 rounded-lg">
                   <div className="flex justify-between">
@@ -140,12 +183,16 @@ export default function FineEvidence() {
                 <CardDescription>{violation.exitToll}</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden mb-4">
-                  <img 
-                    src={violation.exitImage} 
-                    alt="Exit point license plate" 
-                    className="w-full h-full object-cover"
-                  />
+                <div className="aspect-video bg-slate-200 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+                  {violation.exitImage ? (
+                    <img
+                      src={violation.exitImage}
+                      alt="Exit point license plate"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-slate-500">No exit image available</span>
+                  )}
                 </div>
                 <div className="space-y-2 bg-slate-50 p-4 rounded-lg">
                   <div className="flex justify-between">

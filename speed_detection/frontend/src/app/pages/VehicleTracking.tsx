@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -6,18 +6,38 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Search, Car, MapPin, Clock, TrendingUp } from 'lucide-react';
-import { mockViolations, mockAdmin } from '../data/mockData';
+import { getFines } from '../api/tolls';
+import { mapFineToViolation, Violation } from '../api/mappers';
+import { useAuth } from '../auth/AuthContext';
+import { toast } from 'sonner';
 
 export default function VehicleTracking() {
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
   const [plateNumber, setPlateNumber] = useState('');
-  const [searchResults, setSearchResults] = useState<typeof mockViolations>([]);
+  const [searchResults, setSearchResults] = useState<Violation[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [violations, setViolations] = useState<Violation[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const fines = await getFines();
+        setViolations(fines.map(mapFineToViolation));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load violations.';
+        toast.error(message);
+      }
+    };
+    load();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (plateNumber.trim()) {
-      const results = mockViolations.filter(
-        v => v.plateNumber.toLowerCase() === plateNumber.toLowerCase().trim()
+      const normalized = plateNumber.toLowerCase().trim();
+      const results = violations.filter(
+        (v) => v.plateNumber.toLowerCase() === normalized
       );
       setSearchResults(results);
       setHasSearched(true);
@@ -32,8 +52,8 @@ export default function VehicleTracking() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockAdmin.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
@@ -164,7 +184,7 @@ export default function VehicleTracking() {
                               <TableCell>
                                 <div>
                                   <div className="font-semibold text-[#0F172A]">{violation.date}</div>
-                                  <div className="text-sm text-slate-600">{violation.entryTime.split(' ')[1]}</div>
+                                  <div className="text-sm text-slate-600">{new Date(violation.entryTime).toLocaleTimeString()}</div>
                                 </div>
                               </TableCell>
                               <TableCell>
