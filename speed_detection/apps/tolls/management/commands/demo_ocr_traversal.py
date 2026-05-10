@@ -12,6 +12,11 @@ from apps.tolls.models import Toll, TollTraversal
 from apps.tolls.services import create_capture, normalize_plate, read_plate_from_image
 from apps.vehicles.models import Vehicle
 
+# Command to demonstrate the traversal from real life without the cameras,
+# sending pictures to the OCR and creating the captures, traversal and fine if speeding.
+# You can use it with any images, but for best results use clear pictures of license plates.
+# You can also provide the plate text directly to bypass OCR if you want to test traversal/fine logic without worrying about OCR accuracy.
+
 
 class Command(BaseCommand):
     help = "Run a demo OCR flow: two images -> captures -> traversal + fine if speeding."
@@ -19,8 +24,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--entry-toll', default='ROM')
         parser.add_argument('--exit-toll', default='PET')
-        parser.add_argument('--entry-image', default='services/pictures/5.png')
-        parser.add_argument('--exit-image', default='services/pictures/5.png')
+        parser.add_argument('--entry-image', default='services/pictures/7.png')
+        parser.add_argument('--exit-image', default='services/pictures/7.png')
         parser.add_argument('--minutes-between', type=int, default=10)
         parser.add_argument('--plate-text', default='')
         parser.add_argument('--vehicle-plate', default='SK-1234-AB')

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -7,31 +7,50 @@ import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Search, Filter, Eye, CheckCircle, XCircle } from 'lucide-react';
-import { mockViolations, mockAdmin } from '../data/mockData';
+import { getFines } from '../api/tolls';
+import { mapFineToViolation, Violation } from '../api/mappers';
+import { useAuth } from '../auth/AuthContext';
 import { toast } from 'sonner';
 
 export default function ViolationManagement() {
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [violations, setViolations] = useState(mockViolations);
+  const [violations, setViolations] = useState<Violation[]>([]);
 
-  const filteredViolations = violations.filter((violation) => {
-    const matchesSearch = 
-      violation.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      violation.plateNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || violation.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const fines = await getFines();
+        setViolations(fines.map(mapFineToViolation));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load violations.';
+        toast.error(message);
+      }
+    };
+    load();
+  }, []);
 
-  const handleApprove = (id: string) => {
-    setViolations(violations.map(v => 
+  const filteredViolations = useMemo(() => {
+    return violations.filter((violation) => {
+      const matchesSearch =
+        violation.referenceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        violation.plateNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || violation.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [violations, searchTerm, statusFilter]);
+
+  const handleApprove = (id: number) => {
+    setViolations(violations.map((v) =>
       v.id === id ? { ...v, status: 'unpaid' as const } : v
     ));
     toast.success(`Violation ${id} approved`);
   };
 
-  const handleReject = (id: string) => {
-    setViolations(violations.filter(v => v.id !== id));
+  const handleReject = (id: number) => {
+    setViolations(violations.filter((v) => v.id !== id));
     toast.error(`Violation ${id} rejected`);
   };
 
@@ -50,8 +69,8 @@ export default function ViolationManagement() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockAdmin.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
@@ -164,7 +183,7 @@ export default function ViolationManagement() {
                 <TableBody>
                   {filteredViolations.map((violation) => (
                     <TableRow key={violation.id} className="hover:bg-slate-50">
-                      <TableCell className="font-semibold text-[#6366F1]">{violation.id}</TableCell>
+                      <TableCell className="font-semibold text-[#6366F1]">{violation.referenceNumber}</TableCell>
                       <TableCell>
                         <div className="font-semibold text-[#0F172A] bg-slate-100 px-3 py-1 rounded inline-block">
                           {violation.plateNumber}

@@ -59,8 +59,6 @@ def toll_json(toll):
         'id': toll.id,
         'name': toll.name,
         'code': toll.code,
-        'city': toll.city,
-        'road_name': toll.road_name,
         'is_active': toll.is_active,
         'coordinates': {
             'latitude': toll.coordinates.latitude,
@@ -75,13 +73,10 @@ def connection_json(connection):
         'from_toll': toll_json(connection.from_toll),
         'to_toll': toll_json(connection.to_toll),
         'distance_km': connection.distance_km,
+        'max_speed_kph': connection.max_speed_kph,
         'speed_limit_kph': connection.effective_speed_limit_kph,
-        'tolerance_kph': connection.tolerance_kph,
+        'allowed_time_minutes': str(connection.allowed_time_minutes),
         'minimum_allowed_seconds': connection.minimum_allowed_seconds(),
-        'maps_distance_meters': connection.maps_distance_meters,
-        'maps_duration_seconds': connection.maps_duration_seconds,
-        'maps_duration_in_traffic_seconds': connection.maps_duration_in_traffic_seconds,
-        'maps_last_synced_at': connection.maps_last_synced_at.isoformat() if connection.maps_last_synced_at else None,
     }
 
 
@@ -92,9 +87,6 @@ def capture_json(capture):
         'vehicle_id': capture.vehicle_id,
         'plate_text': capture.plate_text,
         'captured_at': capture.captured_at.isoformat(),
-        'image_path': capture.image_path,
-        'ocr_confidence': capture.ocr_confidence,
-        'lane_identifier': capture.lane_identifier,
     }
 
 
@@ -141,7 +133,6 @@ def fine_json(fine):
         'discount_percent': fine.discount_percent,
         'discount_deadline': fine.discount_deadline.isoformat(),
         'issued_at': fine.issued_at.isoformat(),
-        'due_at': fine.due_at.isoformat(),
         'status': fine.status,
         'notes': fine.notes,
     }
@@ -181,8 +172,6 @@ def tolls(request):
     toll = Toll.objects.create(
         name=body.get('name', ''),
         code=body.get('code') or None,
-        city=body.get('city', ''),
-        road_name=body.get('road_name', ''),
         coordinates=coordinates,
     )
     audit(request.user, 'create_toll', toll)
@@ -206,11 +195,7 @@ def connections(request):
         to_toll_id=body.get('to_toll_id'),
         distance_km=body.get('distance_km'),
         max_speed_kph=body.get('max_speed_kph'),
-        tolerance_kph=body.get('tolerance_kph', 5),
-        maps_distance_meters=body.get('maps_distance_meters'),
-        maps_duration_seconds=body.get('maps_duration_seconds'),
-        maps_duration_in_traffic_seconds=body.get('maps_duration_in_traffic_seconds'),
-        maps_last_synced_at=timezone.now() if body.get('maps_distance_meters') else None,
+        allowed_time_minutes=body.get('allowed_time_minutes') or 0,
     )
     audit(request.user, 'create_connection', connection)
     return JsonResponse(connection_json(connection), status=201)

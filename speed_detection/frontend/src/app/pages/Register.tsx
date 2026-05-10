@@ -5,9 +5,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { useAuth } from '../auth/AuthContext';
+import { createVehicle } from '../api/tolls';
+import { toast } from 'sonner';
 
 export default function Register() {
   const navigate = useNavigate();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -16,10 +20,40 @@ export default function Register() {
     licensePlate1: '',
     licensePlate2: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const [firstName, ...lastNameParts] = formData.name.trim().split(' ');
+      await register({
+        email: formData.email,
+        password: formData.password,
+        first_name: firstName || '',
+        last_name: lastNameParts.join(' '),
+        role: 'driver',
+      });
+
+      const plates = [formData.licensePlate1, formData.licensePlate2]
+        .map((plate) => plate.trim())
+        .filter(Boolean);
+      for (const plate of plates) {
+        await createVehicle({ license_plate: plate.toUpperCase(), plate_country: 'MK' });
+      }
+
+      toast.success('Account created successfully.');
+      navigate('/dashboard');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Registration failed.';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,8 +171,9 @@ export default function Register() {
               <Button 
                 type="submit" 
                 className="w-full bg-[#312E81] hover:bg-[#4338CA] text-white mt-6"
+                disabled={isSubmitting}
               >
-                Create Account
+                {isSubmitting ? 'Creating account...' : 'Create Account'}
               </Button>
             </form>
 

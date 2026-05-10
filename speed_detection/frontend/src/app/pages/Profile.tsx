@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Sidebar } from '../components/Sidebar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -5,13 +6,32 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { User, Mail, Car, Calendar } from 'lucide-react';
-import { mockUser, mockVehicles } from '../data/mockData';
+import { useAuth } from '../auth/AuthContext';
+import { getVehicles, ApiVehicle } from '../api/tolls';
+import { toast } from 'sonner';
 
 export default function Profile() {
+  const { user } = useAuth();
+  const uiRole = user?.role === 'official' || user?.role === 'admin' ? 'official' : 'driver';
+  const [vehicles, setVehicles] = useState<ApiVehicle[]>([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await getVehicles();
+        setVehicles(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load vehicles.';
+        toast.error(message);
+      }
+    };
+    load();
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
-      <Sidebar role={mockUser.role} />
-      
+      <Sidebar role={uiRole} />
+
       <div className="flex-1 ml-64 p-8">
         <div className="max-w-5xl mx-auto">
           <div className="mb-8">
@@ -35,7 +55,7 @@ export default function Profile() {
                     <Label htmlFor="name">Full Name</Label>
                     <Input
                       id="name"
-                      defaultValue={mockUser.name}
+                      defaultValue={`${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()}
                       className="bg-white border-slate-300"
                     />
                   </div>
@@ -45,7 +65,7 @@ export default function Profile() {
                     <Input
                       id="email"
                       type="email"
-                      defaultValue={mockUser.email}
+                      defaultValue={user?.email ?? ''}
                       className="bg-white border-slate-300"
                     />
                   </div>
@@ -54,7 +74,7 @@ export default function Profile() {
                     <Label htmlFor="role">Account Type</Label>
                     <Input
                       id="role"
-                      defaultValue={mockUser.role === 'driver' ? 'Driver' : 'Official'}
+                      defaultValue={user?.role === 'official' ? 'Official' : 'Driver'}
                       className="bg-white border-slate-300"
                       disabled
                     />
@@ -75,23 +95,23 @@ export default function Profile() {
                   <CardDescription>Your vehicles monitored by the system</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockVehicles.map((vehicle) => (
-                    <div key={vehicle.plateNumber} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  {vehicles.map((vehicle) => (
+                    <div key={vehicle.license_plate} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 bg-[#312E81] rounded-lg flex items-center justify-center">
                             <Car className="w-6 h-6 text-white" />
                           </div>
                           <div>
-                            <p className="font-bold text-lg text-[#0F172A]">{vehicle.plateNumber}</p>
-                            <p className="text-sm text-slate-600">{vehicle.owner}</p>
+                            <p className="font-bold text-lg text-[#0F172A]">{vehicle.license_plate}</p>
+                            <p className="text-sm text-slate-600">{user?.email ?? ''}</p>
                           </div>
                         </div>
-                        <Badge className="bg-[#16A34A] text-white hover:bg-[#16A34A]">Active</Badge>
+                        <Badge className="bg-[#16A34A] text-white hover:bg-[#16A34A]">{vehicle.is_active ? 'Active' : 'Inactive'}</Badge>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-slate-600">
                         <Calendar className="w-4 h-4" />
-                        <span>Registered: {vehicle.registrationDate}</span>
+                        <span>Registered: {vehicle.registration_expires_at ? new Date(vehicle.registration_expires_at).toLocaleDateString() : '—'}</span>
                       </div>
                     </div>
                   ))}
@@ -114,8 +134,8 @@ export default function Profile() {
                     <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                       <User className="w-8 h-8" />
                     </div>
-                    <h3 className="font-bold text-xl mb-1">{mockUser.name}</h3>
-                    <p className="text-indigo-200 text-sm">{mockUser.email}</p>
+                    <h3 className="font-bold text-xl mb-1">{`${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim() || user?.email}</h3>
+                    <p className="text-indigo-200 text-sm">{user?.email}</p>
                   </div>
 
                   <div className="space-y-3">
@@ -123,7 +143,7 @@ export default function Profile() {
                       <Mail className="w-5 h-5 text-[#312E81]" />
                       <div>
                         <p className="text-xs text-slate-600">Email</p>
-                        <p className="font-semibold text-sm text-[#0F172A]">{mockUser.email}</p>
+                        <p className="font-semibold text-sm text-[#0F172A]">{user?.email}</p>
                       </div>
                     </div>
 
@@ -131,7 +151,7 @@ export default function Profile() {
                       <Car className="w-5 h-5 text-[#312E81]" />
                       <div>
                         <p className="text-xs text-slate-600">Vehicles</p>
-                        <p className="font-semibold text-sm text-[#0F172A]">{mockUser.licensePlates.length} Registered</p>
+                        <p className="font-semibold text-sm text-[#0F172A]">{vehicles.length} Registered</p>
                       </div>
                     </div>
 
@@ -140,7 +160,7 @@ export default function Profile() {
                       <div>
                         <p className="text-xs text-slate-600">Account Type</p>
                         <p className="font-semibold text-sm text-[#0F172A]">
-                          {mockUser.role === 'driver' ? 'Driver' : 'Official'}
+                          {user?.role === 'official' ? 'Official' : 'Driver'}
                         </p>
                       </div>
                     </div>
